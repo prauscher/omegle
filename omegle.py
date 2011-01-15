@@ -125,6 +125,7 @@ class IRCSession(object):
 	
 	def generateOmegleSession(self, chan):
 		omegle = OmegleIRCConnector(self, chan, OmegleSession('bajor.omegle.com'))
+		print("New Stranger on " + chan)
 		self.omegle[chan] = omegle
 	
 	def getOmegleSession(self, chan):
@@ -167,34 +168,8 @@ class OmegleIRCConnector(object):
 	def omegle_post(self, msg):
 		self.omegle.post(msg)
 	
-	def omegle_connect(self):
-		pass
-		#self.omegle.()
-	
 	def omegle_disconnect(self):
 		self.omegle.disconnect()
-
-class OmegleConnector(object):
-	def __init__(self, a, b):
-		self.a = a
-		self.b = b
-		a.setHandlers(self.handle_connect, self.handle_post, self.handle_typing, self.handle_disconnect)
-		print(str(self.a) + " Handlers registered!");
-	
-	def handle_connect(self):
-		print(str(self.a) +  ' connected')
-		self.a.post('hi?')
-	
-	def handle_post(self, msg):
-		print(str(self.a) + ' Stranger: ' + msg)
-		self.b.post(msg)
-	
-	def handle_typing(self):
-		print(str(self.a) + ' Stranger typing')
-	
-	def handle_disconnect(self):
-		print(str(self.a) + ' Stranger disconnected')
-		self.b.disconnect()
 
 def main():
 	irc = IRCSession('irc.libertirc.net', 6667, 'OmegleBot' + str(random.randint(10,99)), 'omegle', 'Der fabulöse OmegleBot', None)
