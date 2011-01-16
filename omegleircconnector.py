@@ -14,6 +14,7 @@ class OmegleIRCConnector(object):
 	def handle_connect(self):
 		self.debug(" * Connected")
 		if self.chan.startswith('#'):
+			self.irc.startGame(self.chan)
 			self.irc.join(self.chan)
 			self.irc.post(self.chan, "You're now chatting with a random stranger. Say hi!")
 			self.irc.post(self.chan, "Antworten mit " + self.irc.nickname + ": <text>, Neuer Chatpartner: !omegle")
@@ -22,6 +23,8 @@ class OmegleIRCConnector(object):
 	
 	def handle_post(self, msg):
 		self.debug(" < " + msg)
+		if self.irc.hasPlayer(self.chan):
+			msg = self.irc.getActivePlayer(self.chan) + ": " + msg
 		self.irc.post(self.chan, msg)
 	
 	def handle_typing(self, typing):
@@ -30,6 +33,7 @@ class OmegleIRCConnector(object):
 	def handle_disconnect(self):
 		self.debug(" * Hung up")
 		if self.chan.startswith('#'):
+			self.irc.endGame(self.chan)
 			#self.irc.leave(self.chan, "Stranger hung up")
 			self.irc.post(self.chan, "Your conversational partner has disconnected.")
 		else:
@@ -43,4 +47,6 @@ class OmegleIRCConnector(object):
 		self.omegle.post(msg)
 	
 	def omegle_disconnect(self):
+		self.debug(" * Disconnect")
+		self.irc.endGame(self.chan)
 		self.omegle.disconnect()

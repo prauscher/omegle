@@ -59,14 +59,21 @@ class IRCSession(object):
 		for line in msg.split('\n'):
 			self.send('PRIVMSG {0} :{1}'.format(chan, line.rstrip()))
 	
+	def startGame(self, chan):
+		if self.hasPlayer(chan) and chan.startswith('#'):
+			self.choosePlayer(chan)
+	
+	def endGame(self, chan):
+		if self.hasPlayer(chan) and chan.startswith('#'):
+			self.send('MODE {0} -v {1}'.format(chan, self.getActivePlayer(chan)))
+	
 	def hasPlayer(self, chan):
-		return not not self.player[chan]
+		return chan in self.player
 	
 	def getActivePlayer(self, chan):
 		return self.player[chan][0]
 	
 	def choosePlayer(self, chan):
-		self.send('MODE {0} -v {1}'.format(chan, self.getActivePlayer(chan)))
 		random.shuffle(self.player[chan])
 		player = self.getActivePlayer(chan)
 		self.post(chan, "Spieler " + player + " ist dran")
@@ -108,8 +115,6 @@ class IRCSession(object):
 			if self.hasOmegleSession(chan) and self.getOmegleSession(chan).omegle_isConnected():
 				self.getOmegleSession(chan).omegle_disconnect()
 				self.delOmegleSession(chan)
-			if chan.startswith('#'):
-				self.choosePlayer(chan)
 			self.generateOmegleSession(chan)
 		elif cmd.upper() == 'SIGNIN':
 			if not chan in self.player:
