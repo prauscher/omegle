@@ -37,9 +37,9 @@ class OmegleIRCConnector(object):
 	def handle_disconnect(self):
 		self.debug(" * Hung up")
 		if self.chan.startswith('#'):
+			self.irc.post(self.chan, "*** Your conversational partner has disconnected.")
 			self.irc.endGame(self.chan)
 			#self.irc.leave(self.chan, "Stranger hung up")
-			self.irc.post(self.chan, "*** Your conversational partner has disconnected.")
 		else:
 			self.irc.post(self.chan, "*** Connection lost")
 	
