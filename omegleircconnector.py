@@ -11,6 +11,7 @@ class OmegleIRCConnector(object):
 		self.omegle.waitForConnected()
 	
 	def debug(self, msg):
+		#pass
 		print(time.ctime() + " | " + self.chan + msg)
 	
 	def handle_connect(self):

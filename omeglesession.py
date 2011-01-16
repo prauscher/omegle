@@ -16,6 +16,13 @@ class OmegleSession():
 		self.connected = False
 		Thread(target=self.readloop).start()
 	
+	def debug(self, msg):
+		pass
+		#try:
+		#	print(time.ctime() + " | " + self.omegleid + " | " + str(msg))
+		#except AttributeError:
+		#	print(time.ctime() + " | (NULL) | " + str(msg))
+	
 	def setHandlers(self, handler_connect, handler_post, handler_typing, handler_disconnect):
 		self.handler_connect = handler_connect
 		self.handler_post = handler_post
@@ -28,12 +35,10 @@ class OmegleSession():
 	def clientRequest(self, method, url, postdata='\r\n', server=''):
 		if server == '':
 			server = self.server
-		self.lock.acquire()
 		client = http.client.HTTPConnection(server)
 		client.request(method, url, postdata, {"Content-Type": "application/x-www-form-urlencoded"});
 		resp = client.getresponse()
 		cont = resp.read().decode('utf-8')
-		self.lock.release()
 		return cont
 
 	def readevents(self):
@@ -67,11 +72,7 @@ class OmegleSession():
 						self.disconnect()
 						if self.handler_disconnect:
 							self.handler_disconnect()
-			time.sleep(2)
-	
-	def debug(self, msg):
-		pass
-		#print(self.omegleid + " | " + time.ctime() + " | " + str(msg))
+			time.sleep(1)
 	
 	def post(self, msg):
 		self.clientRequest('POST', '/send', urlencode({'id': self.omegleid, 'msg': msg}))
