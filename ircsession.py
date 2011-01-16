@@ -36,9 +36,12 @@ class IRCSession(object):
 	
 	def readloop(self):
 		while True:
-			line = self.rbuf.readline().strip().decode('utf-8')
-			self.debug(' < ' + line)
-			self.parseCommand(line)
+			try:
+				line = self.rbuf.readline().strip().decode('utf-8')
+				self.debug(' < ' + line)
+				self.parseCommand(line)
+			except UnicodeDecodeError:
+				pass
 	
 	def generateOmegleSession(self, chan):
 		omegle = OmegleIRCConnector(self, chan, OmegleSession('bajor.omegle.com'))
@@ -72,7 +75,7 @@ class IRCSession(object):
 			self.send('MODE {0} -v {1}'.format(chan, self.getActivePlayer(chan)))
 	
 	def hasPlayer(self, chan):
-		return chan in self.player
+		return chan in self.player and len(self.player[chan]) > 0
 	
 	def getActivePlayer(self, chan):
 		return self.player[chan][0]
@@ -99,8 +102,10 @@ class IRCSession(object):
 			if body.startswith('!'):
 				self.parseAdminCommand(source, chan, body[1:])
 			#elif self.hasOmegleSession(chan):
-			elif body.startswith(self.nickname):
+			elif self.hasOmegleSession(chan) and body.startswith(self.nickname):
 				self.getOmegleSession(chan).omegle_post(body[len(self.nickname)+1:].lstrip())
+			elif body.startswith(self.nickname):
+				self.post(chan, "No Stranger available! Use !omegle to search for Strangers.")
 			else:
 				pass
 				#self.post(chan, 'U are talking strange things!')

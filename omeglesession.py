@@ -76,6 +76,12 @@ class OmegleSession():
 	def post(self, msg):
 		self.clientRequest('POST', '/send', urlencode({'id': self.omegleid, 'msg': msg}))
 	
+	def setTyping(self, typing):
+		if typing:
+			self.clientRequest('POST', '/typing', urlencode({'id': self.omegleid}))
+		else:
+			self.clientRequest('POST', '/stoppedtyping', urlencode({'id': self.omegleid}))
+	
 	def disconnect(self):
 		self.clientRequest('POST', '/disconnect')
 		self.connected = False
