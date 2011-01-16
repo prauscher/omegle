@@ -70,6 +70,9 @@ class IRCSession(object):
 	def startGame(self, chan):
 		if self.hasPlayer(chan) and chan.startswith('#'):
 			self.choosePlayer(chan)
+			player = self.getActivePlayer(chan)
+			self.post(chan, "It is " + player + " s turn")
+			self.send('MODE {0} +v {1}'.format(chan, player))
 	
 	def endGame(self, chan):
 		if self.hasPlayer(chan) and chan.startswith('#'):
@@ -82,10 +85,7 @@ class IRCSession(object):
 		return self.player[chan][0]
 	
 	def choosePlayer(self, chan):
-		random.shuffle(self.player[chan])
-		player = self.getActivePlayer(chan)
-		self.post(chan, "Spieler " + player + " ist dran")
-		self.send('MODE {0} +v {1}'.format(chan, player))
+		self.player[chan].append(self.player[chan].pop(0))
 	
 	def parseCommand(self, line):
 		if line == '' or line == None:
@@ -103,10 +103,12 @@ class IRCSession(object):
 			if body.startswith('!'):
 				self.parseAdminCommand(source, chan, body[1:])
 			#elif self.hasOmegleSession(chan):
-			elif self.hasOmegleSession(chan) and chan.startswith('#') and body.startswith(self.nickname):
+			elif chan.startswith('#') and self.hasOmegleSession(chan) and body.startswith(self.nickname):
 				self.getOmegleSession(chan).omegle_post(body[len(self.nickname)+1:].lstrip())
 			elif chan.startswith('#') and body.startswith(self.nickname):
 				self.post(chan, "No Stranger available! Use !omegle to search for Strangers.")
+			elif not chan.startswith('#') and self.hasOmegleSession(chan):
+				self.getOmegleSession(chan).omegle_post(body)
 			elif not chan.startswith('#'):
 				self.post(chan, "Hello! Use !omegle to start a new conversation")
 			else:
@@ -131,6 +133,10 @@ class IRCSession(object):
 					self.post(chan, " !signout      Remove yourself from the Playerlist.")
 				elif subcmd == 'PLAYERS':
 					self.post(chan, " !players      Show the playerlist in the current channel.")
+				elif subcmd == 'ADMINADD':
+					self.post(chan, " !adminadd <u> Make user u an admin. Admin-Privileges required.")
+				elif subcmd == 'ADMINDEL':
+					self.post(chan, " !admindel <u> Drop Priviliges for User u. Admin-Privileges required.")
 				elif subcmd == 'JOIN':
 					self.post(chan, " !join <c>     Joins channel c. Admin-Privileges required.")
 				elif subcmd == 'PART':
@@ -140,7 +146,7 @@ class IRCSession(object):
 				else:
 					self.post(chan, "Help for " + subcmd + " not found")
 			else:
-				self.post(chan, "Available commands: !disconnect, !omegle, !join, !part, !signin, !signout, !players, !quit")
+				self.post(chan, "Available commands: !disconnect, !omegle, !signin, !signout, !players, !join, !part, !quit")
 		elif cmd.upper() == 'DISCONNECT':
 			if sender in self.admins and len(args) > 0:
 				chan = args.pop(0)
@@ -154,33 +160,45 @@ class IRCSession(object):
 				self.getOmegleSession(chan).omegle_disconnect()
 				self.delOmegleSession(chan)
 			self.generateOmegleSession(chan)
-		elif cmd.upper() == 'JOIN':
-			if sender in self.admins and len(args) >= 1:
-				self.join(args.pop(0))
-		elif cmd.upper() == 'PART':
-			if sender in self.admins and len(args) >= 1:
-				self.leave(args.pop(0), "Admin forces!")
 		elif cmd.upper() == 'SIGNIN':
 			if not chan in self.player:
 				self.player[chan] = []
 			if sender in self.player[chan]:
-				self.post(chan, "Spieler " + sender + " bereits eingetragen")
+				self.post(chan, "Player " + sender + " already on the list")
 			else:
 				self.player[chan].append(sender)
-				self.post(chan, "Spieler " + sender + " eingetragen")
+				self.post(chan, "Player " + sender + " is now on the list")
 		elif cmd.upper() == 'SIGNOUT':
 			if not chan in self.player:
 				self.player[chan] = []
 			if not sender in self.player[chan]:
-				self.post(chan, "Spieler " + sender + " nicht eingetragen")
+				self.post(chan, "Player " + sender + " not in the list")
 			else:
 				self.player[chan].remove(sender)
-				self.post(chan, "Spieler " + sender + " ausgetragen")
+				self.post(chan, "Player " + sender + " not longer in the list")
 		elif cmd.upper() == 'PLAYERS':
 			if not self.hasPlayer(chan):
-				self.post(chan, "Keine Spieler Registriert. Freier Chatmodus!")
+				self.post(chan, "Free chat mode - no Players registered")
 			else:
-				self.post(chan, "Eingetragene Spieler: " + ', '.join(self.player[chan]))
+				self.post(chan, "Registered Players: " + ', '.join([p[0:-1]+' '+p[-1:] for p in self.player[chan]]))
+		elif cmd.upper() == 'ADMINADD':
+			if sender in self.admins and len(args) >= 1:
+				user = args.pop(0)
+				self.admins.append(user)
+				self.post(chan, "Privileges granted for user " + user)
+		elif cmd.upper() == 'ADMINDEL':
+			if sender in self.admins and len(args) >= 1:
+				user = args.pop(0)
+				self.admins.remove(user)
+				self.post(chan, "Privileges dropped for user " + user)
+		elif cmd.upper() == 'JOIN':
+			if sender in self.admins and len(args) >= 1:
+				self.join(args.pop(0))
+		elif cmd.upper() == 'PART':
+			if len(args) >= 1:
+				chan = args.pop(0)
+			if sender in self.admins:
+				self.leave(chan, "Admin forces!")
 		elif cmd.upper() == 'QUIT':
 			if not sender in self.admins:
 				self.post(chan, "Troll.")
