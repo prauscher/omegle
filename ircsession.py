@@ -118,25 +118,48 @@ class IRCSession(object):
 	def parseAdminCommand(self, sender, chan, admin):
 		args = admin.rstrip().split(' ')
 		cmd = args.pop(0).strip()
-		if cmd.upper() == 'DISCONNECT':
+		if cmd.upper() == 'HELP':
+			if len(args) > 0:
+				subcmd = args.pop(0).upper()
+				if subcmd == 'DISCONNECT':
+					self.post(chan, " !disconnect   Disconnects the Omegleuser")
+				elif subcmd == 'OMEGLE':
+					self.post(chan, " !omegle       Start a new game, disconnecting the current user if any")
+				elif subcmd == 'SIGNIN':
+					self.post(chan, " !signin       Add yourself to the Playerlist. Do not forget to !signout when you are away!")
+				elif subcmd == 'SIGNOUT':
+					self.post(chan, " !signout      Remove yourself from the Playerlist.")
+				elif subcmd == 'PLAYERS':
+					self.post(chan, " !players      Show the playerlist in the current channel.")
+				elif subcmd == 'JOIN':
+					self.post(chan, " !join <c>     Joins channel c. Admin-Privileges required.")
+				elif subcmd == 'PART':
+					self.post(chan, " !part [c]     Leave channel c, defaulting to current. Admin-Privileges required.")
+				elif subcmd == 'QUIT':
+					self.post(chan, " !quit         Stop the Bot. Admin-Privileges required.")
+				else:
+					self.post(chan, "Help for " + subcmd + " not found")
+			else:
+				self.post(chan, "Available commands: !disconnect, !omegle, !join, !part, !signin, !signout, !players, !quit")
+		elif cmd.upper() == 'DISCONNECT':
 			if sender in self.admins and len(args) > 0:
-				chan = args.pop()
+				chan = args.pop(0)
 			if self.hasOmegleSession(chan):
 				self.getOmegleSession(chan).omegle_disconnect()
 				self.delOmegleSession(chan)
 		elif cmd.upper() == 'OMEGLE':
 			if sender in self.admins and len(args) > 0:
-				chan = args.pop()
+				chan = args.pop(0)
 			if self.hasOmegleSession(chan) and self.getOmegleSession(chan).omegle_isConnected():
 				self.getOmegleSession(chan).omegle_disconnect()
 				self.delOmegleSession(chan)
 			self.generateOmegleSession(chan)
 		elif cmd.upper() == 'JOIN':
 			if sender in self.admins and len(args) >= 1:
-				self.join(args.pop())
+				self.join(args.pop(0))
 		elif cmd.upper() == 'PART':
 			if sender in self.admins and len(args) >= 1:
-				self.leave(args.pop(), "Admin forces!")
+				self.leave(args.pop(0), "Admin forces!")
 		elif cmd.upper() == 'SIGNIN':
 			if not chan in self.player:
 				self.player[chan] = []
@@ -153,11 +176,20 @@ class IRCSession(object):
 			else:
 				self.player[chan].remove(sender)
 				self.post(chan, "Spieler " + sender + " ausgetragen")
-		elif cmd.upper() == 'QUIT':
-			if sender == 'prauscher':
-				sys.exit()
+		elif cmd.upper() == 'PLAYERS':
+			if not self.hasPlayer(chan):
+				self.post(chan, "Keine Spieler Registriert. Freier Chatmodus!")
 			else:
+				self.post(chan, "Eingetragene Spieler: " + ', '.join(self.player[chan]))
+		elif cmd.upper() == 'QUIT':
+			if not sender in self.admins:
 				self.post(chan, "Troll.")
+			else:
+				for c in self.omegle:
+					self.getOmegleSession(c).omegle_disconnect()
+					self.delOmegleSession(c)
+				self.send("QUIT")
+				sys.exit()
 		elif cmd.upper() == '':
 			pass
 		else:
