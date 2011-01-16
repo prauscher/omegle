@@ -26,14 +26,18 @@ class IRCSession(object):
 		# Wait until MOTD etc gets done
 		time.sleep(3)
 	
+	def debug(self, msg):
+		#print(msg)
+		pass
+	
 	def send(self, data):
-		#print('> ' + data)
+		self.debug(' > ' + data)
 		self.s.send(data.encode('utf-8') + b'\n')
 	
 	def readloop(self):
 		while True:
 			line = self.rbuf.readline().strip().decode('utf-8')
-			#print('< ' + line)
+			self.debug(' < ' + line)
 			self.parseCommand(line)
 	
 	def generateOmegleSession(self, chan):
@@ -141,14 +145,3 @@ class IRCSession(object):
 			pass
 		else:
 			self.post(chan, "Command {0} not known!".format(cmd))
-
-
-def main():
-	irc = IRCSession('irc.libertirc.net', 6667, 'Stranger', 'omegle', 'Der fabulöse OmegleBot', None)
-	irc.generateOmegleSession('#omegle')
-
-if __name__=="__main__": 
-	try:
-		main()
-	except KeyboardInterrupt:
-		quit(0)
