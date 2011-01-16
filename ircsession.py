@@ -17,6 +17,7 @@ class IRCSession(object):
 		self.omegle = {}
 		self.player = {}
 		self.nickname = nickname
+		self.admins = ['lutoma','prauscher']
 		
 		if password:
 			self.send("PASS {0}".format(password))
@@ -90,22 +91,24 @@ class IRCSession(object):
 		if line == '' or line == None:
 			return
 		if line.startswith(':'):
-			source = line.split(' ', 2)[0].lstrip(':').split('!')[0]
+			source = line.split(' ', 2)[0].lstrip(':').split('!')[0].lower()
 			line = ' '.join(line.split(' ', 2)[1:])
 		if line.upper().startswith('PRIVMSG'):
 			(cmd, chan) = line.split(' ')[0:2]
 			if not chan.startswith('#'):
-				chan = sourcenick
+				chan = source
 			body = ' '.join(line.split(' ')[2:])
 			if body.startswith(':'): body = body[1:]
 			
 			if body.startswith('!'):
 				self.parseAdminCommand(source, chan, body[1:])
 			#elif self.hasOmegleSession(chan):
-			elif self.hasOmegleSession(chan) and body.startswith(self.nickname):
+			elif self.hasOmegleSession(chan) and chan.startswith('#') and body.startswith(self.nickname):
 				self.getOmegleSession(chan).omegle_post(body[len(self.nickname)+1:].lstrip())
-			elif body.startswith(self.nickname):
+			elif chan.startswith('#') and body.startswith(self.nickname):
 				self.post(chan, "No Stranger available! Use !omegle to search for Strangers.")
+			elif not chan.startswith('#'):
+				self.post(chan, "Hello! Use !omegle to start a new conversation")
 			else:
 				pass
 				#self.post(chan, 'U are talking strange things!')
@@ -116,15 +119,24 @@ class IRCSession(object):
 		args = admin.rstrip().split(' ')
 		cmd = args.pop(0).strip()
 		if cmd.upper() == 'DISCONNECT':
-			self.getOmegleSession(chan).omegle_disconnect()
-			self.delOmegleSession(chan)
+			if sender in self.admins and len(args) > 0:
+				chan = args.pop()
+			if self.hasOmegleSession(chan):
+				self.getOmegleSession(chan).omegle_disconnect()
+				self.delOmegleSession(chan)
 		elif cmd.upper() == 'OMEGLE':
-			if len(args) > 0:
+			if sender in self.admins and len(args) > 0:
 				chan = args.pop()
 			if self.hasOmegleSession(chan) and self.getOmegleSession(chan).omegle_isConnected():
 				self.getOmegleSession(chan).omegle_disconnect()
 				self.delOmegleSession(chan)
 			self.generateOmegleSession(chan)
+		elif cmd.upper() == 'JOIN':
+			if sender in self.admins and len(args) >= 1:
+				self.join(args.pop())
+		elif cmd.upper() == 'PART':
+			if sender in self.admins and len(args) >= 1:
+				self.leave(args.pop(), "Admin forces!")
 		elif cmd.upper() == 'SIGNIN':
 			if not chan in self.player:
 				self.player[chan] = []
