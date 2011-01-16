@@ -4,6 +4,7 @@ from threading import Thread, Lock
 import socket
 import random
 import time
+import sys
 from omegleircconnector import OmegleIRCConnector
 from omeglesession import OmegleSession
 
@@ -14,6 +15,8 @@ class IRCSession(object):
 		self.rbuf = self.s.makefile("rb")
 		
 		self.omegle = {}
+		self.player = {}
+		self.nickname = nickname
 		
 		if password:
 			self.send("PASS {0}".format(password))
@@ -44,11 +47,6 @@ class IRCSession(object):
 		del self.omegle[chan]
 
 	def getOmegleSession(self, chan):
-		if not chan in self.omegle:
-			self.generateOmegleSession(chan)
-		elif not self.omegle[chan].omegle_isConnected():
-			self.omegle[chan].omegle_disconnect()
-			self.generateOmegleSession(chan)
 		return self.omegle[chan]
 	
 	def join(self, chan):
@@ -58,14 +56,27 @@ class IRCSession(object):
 		self.send('PART {0} :{1}'.format(chan, reason))
 	
 	def post(self, chan, msg):
-		self.send('PRIVMSG {0} :{1}'.format(chan, msg))
+		for line in msg.split('\n'):
+			self.send('PRIVMSG {0} :{1}'.format(chan, line.rstrip()))
+	
+	def hasPlayer(self, chan):
+		return not not self.player[chan]
+	
+	def getActivePlayer(self, chan):
+		return self.player[chan][0]
+	
+	def choosePlayer(self, chan):
+		self.send('MODE {0} -v {1}'.format(chan, self.getActivePlayer(chan)))
+		random.shuffle(self.player[chan])
+		player = self.getActivePlayer(chan)
+		self.post(chan, "Spieler " + player + " ist dran")
+		self.send('MODE {0} +v {1}'.format(chan, player))
 	
 	def parseCommand(self, line):
 		if line == '' or line == None:
 			return
 		if line.startswith(':'):
-			source = line.split(' ', 2)[0].lstrip(':')
-			sourcenick = source.split('!')[0]
+			source = line.split(' ', 2)[0].lstrip(':').split('!')[0]
 			line = ' '.join(line.split(' ', 2)[1:])
 		if line.upper().startswith('PRIVMSG'):
 			(cmd, chan) = line.split(' ')[0:2]
@@ -75,15 +86,17 @@ class IRCSession(object):
 			if body.startswith(':'): body = body[1:]
 			
 			if body.startswith('!'):
-				self.parseAdminCommand(chan, body[1:])
-			elif self.hasOmegleSession(chan):
-				self.getOmegleSession(chan).omegle_post(body)
+				self.parseAdminCommand(source, chan, body[1:])
+			#elif self.hasOmegleSession(chan):
+			elif body.startswith(self.nickname):
+				self.getOmegleSession(chan).omegle_post(body[len(self.nickname)+1:].lstrip())
 			else:
-				self.post(chan, 'U are talking strange things!')
+				pass
+				#self.post(chan, 'U are talking strange things!')
 		elif line.upper().startswith('PING'):
-			self.post('PONG ' + line[5:])
+			self.send('PONG ' + line[5:])
 	
-	def parseAdminCommand(self, chan, admin):
+	def parseAdminCommand(self, sender, chan, admin):
 		args = admin.rstrip().split(' ')
 		cmd = args.pop(0).strip()
 		if cmd.upper() == 'DISCONNECT':
@@ -92,9 +105,33 @@ class IRCSession(object):
 		elif cmd.upper() == 'OMEGLE':
 			if len(args) > 0:
 				chan = args.pop()
-			if self.getOmegleSession(chan).omegle_isConnected():
+			if self.hasOmegleSession(chan) and self.getOmegleSession(chan).omegle_isConnected():
 				self.getOmegleSession(chan).omegle_disconnect()
+				self.delOmegleSession(chan)
+			if chan.startswith('#'):
+				self.choosePlayer(chan)
 			self.generateOmegleSession(chan)
+		elif cmd.upper() == 'SIGNIN':
+			if not chan in self.player:
+				self.player[chan] = []
+			if sender in self.player[chan]:
+				self.post(chan, "Spieler " + sender + " bereits eingetragen")
+			else:
+				self.player[chan].append(sender)
+				self.post(chan, "Spieler " + sender + " eingetragen")
+		elif cmd.upper() == 'SIGNOUT':
+			if not chan in self.player:
+				self.player[chan] = []
+			if not sender in self.player[chan]:
+				self.post(chan, "Spieler " + sender + " nicht eingetragen")
+			else:
+				self.player[chan].remove(sender)
+				self.post(chan, "Spieler " + sender + " ausgetragen")
+		elif cmd.upper() == 'QUIT':
+			if sender == 'prauscher':
+				sys.exit()
+			else:
+				self.post(chan, "Troll.")
 		elif cmd.upper() == '':
 			pass
 		else:
@@ -102,7 +139,7 @@ class IRCSession(object):
 
 
 def main():
-	irc = IRCSession('irc.libertirc.net', 6667, 'OmegleBot', 'omegle', 'Der fabulöse OmegleBot', None)
+	irc = IRCSession('irc.libertirc.net', 6667, 'Stranger', 'omegle', 'Der fabulöse OmegleBot', None)
 	irc.generateOmegleSession('#omegle')
 
 if __name__=="__main__": 
